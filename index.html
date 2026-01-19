@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tournoi V35 - Ultimate</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚔️</text></svg>">
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-bracket/0.11.1/jquery.bracket.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-bracket/0.11.1/jquery.bracket.min.css" />
+
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg: #f3f4f6; --surface: #ffffff;
+            --primary: #2563eb; --accent: #ef4444; --text: #1f2937; --muted: #6b7280;
+            --border: #e5e7eb; --gold: #f59e0b; --shadow: 0 4px 10px rgba(0,0,0,0.08);
+            --line: #cbd5e1; --sidebar-w: 280px;
+            --me-highlight: #e0f2fe; --me-text: #0369a1;
+        }
+        body.dark-mode {
+            --bg: #0f172a; --surface: #1e293b; --text: #f8fafc; --muted: #94a3b8;
+            --border: #334155; --shadow: 0 4px 10px rgba(0,0,0,0.4); --line: #475569;
+            --me-highlight: #0c4a6e; --me-text: #bae6fd;
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body { 
+            font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); 
+            margin: 0; padding: 0; min-height: 100vh;
+            padding-left: var(--sidebar-w); 
+            transition: background-color 0.3s ease, color 0.3s ease, padding-left 0.3s ease;
+        }
+
+        /* --- JQUERY BRACKET CUSTOM --- */
+        .jQBracket { font-family: 'Inter', sans-serif; }
+        .jQBracket .team { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 4px; }
+        .jQBracket .team.highlight { background-color: var(--primary) !important; color: white !important; }
+        .jQBracket .team.winner { background-color: #d1fae5 !important; color: #065f46 !important; font-weight: bold; border-color: #10b981; }
+        
+        /* Cacher les scores pour les non-admins */
+        body:not(.is-admin) .jQBracket .score { display: none !important; }
+        body:not(.is-admin) .jQBracket .team { padding-right: 5px; } /* Ajustement visuel sans score */
+
+        /* Dark Mode overrides for Bracket */
+        body.dark-mode .jQBracket .team { background: #334155; border-color: #475569; color: white; }
+        body.dark-mode .jQBracket .team.winner { background-color: #064e3b !important; color: #d1fae5 !important; }
+        
+        /* Clean UI */
+        .jQBracket .tools { display: none !important; }
+
+        /* --- CHAT SIDEBAR --- */
+        .chat-sidebar {
+            position: fixed; top: 0; left: 0; bottom: 0;
+            width: var(--sidebar-w); background: var(--surface); 
+            border-right: 1px solid var(--border); z-index: 1000;
+            display: flex; flex-direction: column;
+            transition: transform 0.3s ease;
+        }
+        .chat-header { padding: 15px; border-bottom: 1px solid var(--border); font-weight: bold; color: var(--primary); display: flex; justify-content: space-between; align-items: center; background: var(--surface); }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; background: var(--bg); }
+        .chat-input-area { padding: 10px; border-top: 1px solid var(--border); display: flex; gap: 5px; background: var(--surface); }
+        .msg { font-size: 0.9rem; padding: 10px 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); max-width: 95%; align-self: flex-start; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .msg-header { display: flex; align-items: center; font-size: 0.75rem; gap: 10px; }
+        .msg-author { font-weight: 800; color: var(--primary); }
+        .msg-time { color: var(--muted); font-size: 0.7rem; }
+        .msg-text { color: var(--text); line-height: 1.4; word-wrap: break-word; }
+        .close-chat-btn { display: none; background:none; border:none; font-size:1.5rem; color:var(--text); cursor:pointer;}
+
+        @media (max-width: 850px) {
+            body { padding-left: 0; padding-bottom: 70px; }
+            .chat-sidebar { transform: translateX(-100%); width: 100%; max-width: 350px; z-index: 2000; transition: transform 0.3s ease; }
+            .chat-sidebar.open { transform: translateX(0); box-shadow: 5px 0 20px rgba(0,0,0,0.2); }
+            .close-chat-btn { display: block; }
+            #chat-mobile-btn { display: flex !important; }
+        }
+
+        /* --- CONTENT --- */
+        .main-content { width: 100%; max-width: 1000px; margin: 0 auto; padding: 20px; }
+
+        header { background: var(--surface); padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 50; margin: -20px -20px 20px -20px; }
+        h1 { margin: 0; font-size: 1.1rem; font-weight: 800; color: var(--primary); }
+        .header-actions button { background: transparent; border: 1px solid var(--border); color: var(--text); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; margin-left: 5px; transition:0.2s;}
+
+        .tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 53px; z-index: 40; margin: -20px -20px 20px -20px; }
+        .tab { flex: 1; text-align: center; padding: 15px 0; font-weight: 600; color: var(--muted); cursor: pointer; transition: 0.2s; font-size: 0.9rem; }
+        .tab.active { color: var(--primary); }
+        .tab-slider { position: absolute; bottom: 0; left: 0; height: 3px; background: var(--primary); width: 33.33%; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 1; }
+
+        .section { display: none; animation: fadeIn 0.3s ease; }
+        .section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .card { background: var(--surface); border-radius: 12px; padding: 15px; box-shadow: var(--shadow); margin-bottom: 15px; border: 1px solid var(--border); }
+        .admin-dashboard { border: 2px dashed var(--primary); background: rgba(37, 99, 235, 0.05); display: none; margin-bottom: 20px; padding: 15px; border-radius: 12px; }
+        body.is-admin .admin-dashboard { display: block; }
+        
+        #admin-leave-requests { display: none; background: #fee2e2; border: 1px solid #ef4444; border-radius: 8px; padding: 10px; margin-bottom: 15px; }
+        .leave-item { display: flex; justify-content: space-between; align-items: center; background: var(--surface); padding: 8px 12px; border-radius: 6px; margin-top: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .leave-actions { display: flex; gap: 8px; }
+
+        .admin-row { margin-bottom: 10px; display: flex; gap: 10px; align-items: center;}
+        .admin-label { font-size: 0.8rem; font-weight: 700; color: var(--muted); min-width: 60px; }
+        input, select { width: 100%; padding: 10px; border-radius: 8px; border: 2px solid var(--border); background: var(--bg); color: var(--text); font-size: 1rem; outline: none; transition: 0.2s; }
+        
+        button.btn { width: 100%; padding: 10px; border-radius: 8px; border: none; font-weight: 700; cursor: pointer; color: white; background: var(--primary); transition:0.2s; font-size: 0.95rem; margin-top: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        button.btn:active { transform: scale(0.96); }
+        .btn-danger { background: var(--accent); }
+        .btn-success { background: #10b981; }
+        .btn-restart { background: #8e44ad; }
+        .btn-sm { padding: 6px 12px; font-size: 0.8rem; width: auto; margin-top: 0; }
+
+        .chip { background: var(--bg); border: 1px solid var(--border); padding: 6px 12px; border-radius: 50px; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 5px; margin: 3px; }
+        .chip.me { border-color: var(--primary); background: var(--me-highlight); color: var(--me-text); font-weight: bold; box-shadow: 0 0 0 1px var(--primary); }
+        .del-icon { color: var(--accent); cursor: pointer; display: none; margin-left: 5px; font-weight: bold; }
+        body.is-admin .del-icon { display: block; }
+
+        /* BRACKET CONTAINER */
+        #bracket-root { overflow: auto; padding: 20px; display: flex; justify-content: center; }
+
+        /* MATCH CARD SWISS */
+        .match-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+        .swiss-duel { display: flex; justify-content: space-between; align-items: center; }
+        .s-player { width: 40%; display: flex; align-items: center; gap: 5px; font-weight: 600; font-size: 0.95rem; overflow: hidden;}
+        .s-player.right { justify-content: flex-end; text-align: right; }
+        .s-player.is-me { color: var(--primary); text-shadow: 0 0 1px rgba(37, 99, 235, 0.2); }
+        .s-score { font-weight: 800; font-size: 1rem; color: var(--muted); min-width: 60px; text-align: center; }
+        .s-dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid #999; flex-shrink: 0; }
+        .s-dot.white { background: #fff; }
+        .s-dot.black { background: #333; }
+
+        .admin-actions { display: none; gap: 5px; border-top: 1px dashed var(--border); padding-top: 10px; margin-top: 10px; }
+        body.is-admin .admin-actions { display: flex; }
+        .score-btn { flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); cursor: pointer; color: var(--muted); }
+        .score-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        .round-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; background: var(--surface); padding: 5px; border-radius: 8px; border: 1px solid var(--border); }
+        .nav-btn { background: var(--primary); border: none; width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; font-size: 1.2rem; transition:0.2s;}
+        .nav-btn.hidden { visibility: hidden; pointer-events: none; }
+
+        #chat-mobile-btn { display: none; position: fixed; bottom: 20px; left: 20px; z-index: 100; background: var(--primary); color: white; width: 50px; height: 50px; border-radius: 50%; border: none; box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-size: 1.5rem; cursor: pointer; align-items: center; justify-content: center; }
+
+        /* MODALS */
+        #modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 5000; display: none; justify-content: center; align-items: center; backdrop-filter: blur(4px); transition:0.3s; }
+        .modal-box { background: var(--surface); padding: 25px; border-radius: 16px; width: 90%; max-width: 350px; text-align: center; box-shadow: var(--shadow); border: 1px solid var(--border); animation: popIn 0.2s; }
+        .modal-title { font-size: 1.1rem; font-weight: 800; margin-bottom: 10px; color: var(--primary); }
+        .modal-body { margin-bottom: 20px; font-size: 0.95rem; color: var(--text); }
+        .modal-actions { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
+        @keyframes popIn { from{transform:scale(0.9);opacity:0} to{transform:scale(1);opacity:1} }
+
+        .fp-stars { display: flex; justify-content: center; gap: 10px; margin: 15px 0; }
+        .fp-star { font-size: 2.5rem; color: #ddd; cursor: pointer; transition: 0.2s; }
+        .fp-star.active { color: var(--gold); transform: scale(1.1); }
+
+        #tv-exit { position: fixed; top: 15px; right: 15px; z-index: 3000; background: var(--accent); color: white; padding: 8px 16px; border-radius: 50px; display: none; border:none; font-weight:bold; cursor:pointer;}
+        body.tv-mode #tv-exit { display: block; }
+        body.tv-mode .chat-sidebar, body.tv-mode header, body.tv-mode .tabs, body.tv-mode .admin-dashboard, body.tv-mode #form-wrapper, body.tv-mode #chat-mobile-btn { display: none !important; }
+        body.tv-mode { padding-left: 0; }
+        body.tv-mode .container { max-width: 100%; }
+
+        .shiny-name { background: linear-gradient(135deg, #1f2937 0%, #ef4444 25%, #f59e0b 50%, #ef4444 75%, #1f2937 100%); background-size: 200% auto; color: transparent; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 4s linear infinite; font-weight:800; }
+        body.dark-mode .shiny-name { background: linear-gradient(135deg, #fff 0%, #f59e0b 50%, #fff 100%); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        @keyframes shine { to { background-position: 200% center; } }
+        tr.is-me { background: var(--me-highlight); color: var(--me-text); font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; border-bottom: 1px solid var(--border); font-size: 0.95rem; }
+    </style>
+</head>
+<body>
+
+<aside class="chat-sidebar" id="chat-panel">
+    <div class="chat-header">💬 Chat Global <button class="close-chat-btn" onclick="toggleChatMobile()">×</button></div>
+    <div class="chat-messages" id="chat-box"></div>
+    <div class="chat-input-area"><input type="text" id="chat-input" placeholder="Message..." onkeypress="handleChat(event)"><button class="btn btn-sm" onclick="sendChat()">➤</button></div>
+</aside>
+
+<div class="main-content">
+    <button id="tv-exit" onclick="toggleTV()">❌ Quitter TV</button>
+
+    <header>
+        <h1 id="app-title">🏆 Tournoi V35</h1>
+        <div class="header-actions">
+            <button onclick="toggleTV()">📺</button>
+            <button onclick="toggleTheme()">🌗</button>
+            <button onclick="openLoginModal()">🔒</button>
+        </div>
+    </header>
+
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab(0)">📝 Inscription</div>
+        <div class="tab" onclick="switchTab(1)">⚔️ Matchs</div>
+        <div class="tab" onclick="switchTab(2)">📊 Classement</div>
+        <div class="tab-slider" id="tab-slider"></div>
+    </div>
+
+    <div class="scroll-content">
+        <div class="container">
+
+            <div id="tab-0" class="section active">
+                <div class="admin-dashboard">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3 style="color:var(--primary); margin:0;">🛠️ Admin</h3>
+                        <button class="btn btn-sm btn-danger" onclick="logoutAdmin()">Déco</button>
+                    </div>
+                    <div id="admin-leave-requests"></div>
+                    <div class="admin-row"><span class="admin-label">Titre</span><input type="text" id="admin-title-inp" onchange="updateSettings()" placeholder="Nom..."></div>
+                    <div style="display:flex; gap:10px;">
+                        <div style="flex:1" class="admin-row"><span class="admin-label">Max</span><input type="number" id="set-max" onchange="updateSettings()"></div>
+                        <div style="flex:1" class="admin-row"><span class="admin-label">Rondes</span><input type="number" id="set-rounds" onchange="updateSettings()"></div>
+                    </div>
+                    <div class="admin-row">
+                        <span class="admin-label">Options</span>
+                        <label style="display:flex; align-items:center; gap:5px; font-size:0.9rem; cursor:pointer">
+                            <input type="checkbox" id="set-semis" onchange="updateSettings()"> Inclure Demi-Finales (Top 4)
+                        </label>
+                    </div>
+                    <div class="admin-row" style="background:rgba(0,0,0,0.05); padding:5px; border-radius:6px;"><span class="admin-label">MDP</span><div style="display:flex; gap:5px; flex:1;"><input type="password" id="new-pass-input" placeholder="Nouveau..."><button class="btn btn-sm" onclick="changeAdminPass()">OK</button></div></div>
+                    <div class="admin-row"><span class="admin-label">Mode</span><select id="set-mode" onchange="updateSettings()"><option value="swiss">Suisse</option><option value="tree">Arbre</option></select></div>
+                    <div class="admin-row"><span class="admin-label">Ajout</span><div style="display:flex; gap:5px; flex:1;"><input type="text" id="admin-add-name" placeholder="Nom..." maxlength="12"><button class="btn btn-sm" onclick="adminAddPlayer()">OK</button></div></div>
+                    <hr style="margin:10px 0; border:0; border-top:1px dashed var(--border);">
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn" style="flex:1" onclick="startTournament()">🚀 Lancer</button>
+                        <button class="btn btn-restart" style="flex:1" onclick="restartCompetition()">🔄 Nouveau</button>
+                        <button class="btn btn-danger" style="flex:1" onclick="resetAll()">🗑️ RAZ</button>
+                    </div>
+                </div>
+
+                <div class="card" id="form-wrapper">
+                    <div id="reg-lock" style="display:none; text-align:center; padding:15px; color:var(--accent); font-weight:bold;">⛔ Inscriptions Closes</div>
+                    <div id="view-register">
+                        <h3>👋 Inscription</h3>
+                        <input type="text" id="inp-my-name" placeholder="Pseudo..." maxlength="12">
+                        <button class="btn" onclick="registerMe()">Rejoindre</button>
+                    </div>
+                    <div id="view-profile" style="display:none; text-align:center;">
+                        <div style="font-size:2.5rem; cursor:pointer;" onclick="openEmojiModal()" id="my-emoji"></div>
+                        <h2 id="my-name" style="margin:5px 0; cursor:pointer;" onclick="openNameModal()" class="shiny-name"></h2>
+                        <button id="btn-ask-leave" class="btn btn-danger btn-sm" style="margin-top:10px;" onclick="askLeave()">Demander à quitter</button>
+                        <p id="txt-leave-pending" style="display:none; color:var(--gold);">⏳ Demande envoyée...</p>
+                    </div>
+                    <div style="margin-top:20px; border-top:1px solid var(--border); padding-top:15px;">
+                        <small>Joueurs : <span id="count-curr">0</span> / <span id="count-max">0</span></small>
+                        <div id="chips-list" style="display:flex; flex-wrap:wrap; gap:5px; margin-top:10px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-1" class="section">
+                <div id="matches-waiting" style="text-align:center; padding:40px; color:var(--muted);"><h3>⏳ En attente...</h3></div>
+
+                <div id="swiss-view" style="display:none;">
+                    <div class="round-nav">
+                        <button id="nav-prev" class="nav-btn" onclick="navRound(-1)">◀</button>
+                        <h2 id="round-title" style="margin:0;">Ronde 1</h2>
+                        <button id="nav-next" class="nav-btn" onclick="navRound(1)">▶</button>
+                    </div>
+                    <div id="swiss-list"></div>
+                    <div class="admin-dashboard" style="margin-top:20px;">
+                        <button id="btn-swiss-next" class="btn" style="background:var(--gold); color:black;" onclick="forceNextRound()">Suite ▶</button>
+                    </div>
+                </div>
+
+                <div id="tree-view" style="display:none;">
+                    <div id="bracket-root"></div>
+                </div>
+            </div>
+
+            <div id="tab-2" class="section">
+                <div class="card">
+                    <table>
+                        <thead><tr><th style="text-align:left;">#</th><th>Joueur</th><th style="text-align:center;">Pts</th><th style="text-align:center;">BH</th><th style="text-align:center;">FP⭐</th></tr></thead>
+                        <tbody id="rank-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<button id="chat-mobile-btn" onclick="toggleChatMobile()">💬</button>
+
+<div id="modal-overlay">
+    <div class="modal-box" id="modal-box">
+        <div id="modal-title" class="modal-title">Titre</div>
+        <div id="modal-body" class="modal-body"></div>
+        <div class="modal-actions" id="modal-actions"></div>
+    </div>
+</div>
+
+<script>
+// ⚠️ CLÉS FIREBASE ⚠️
+    const firebaseConfig = {
+        apiKey: "REMPLACE_MOI",
+        authDomain: "REMPLACE_MOI",
+        databaseURL: "REMPLACE_MOI",
+        projectId: "REMPLACE_MOI",
+        storageBucket: "REMPLACE_MOI",
+        messagingSenderId: "REMPLACE_MOI",
+        appId: "REMPLACE_MOI"
+    };
+    // --- SECURITY ---
+    async function sha256(message) {
+        const msgBuffer = new TextEncoder().encode(message);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    const DEFAULT_HASH = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918";
+
+    const EMOJIS = ["🦁","🐯","🐻","🐼","🐨","🐸","🐙","🦄","🐲","🦖","🐳","🐬","🦉","🦊","🦋","🐝","🐞","🤖","👻","👽"];
+    let db, ref;
+    let data = { players: [], rounds: {}, bracketData: null, settings: { max: 32, rounds: 3, started: false, mode: 'swiss', title: "Tournoi", passHash: DEFAULT_HASH, hasSemis: false }, currentRound: 1 };
+    let myId = localStorage.getItem('v35_uid');
+    let viewRound = 1;
+    let isAdmin = false;
+    let lastPlayedRound = 0;
+    let pendingRatingMatch = null;
+
+    window.onload = function() {
+        if(firebaseConfig.apiKey === "REMPLACE_MOI") return showModal("Erreur", "Clés manquantes !", [{text:"OK", action:closeModal}]);
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+        ref = db.ref('tournoi_v35');
+        
+        checkAdminSession();
+        if(localStorage.getItem('v35_dark')==='true') document.body.classList.add('dark-mode');
+        document.addEventListener('keydown', (e) => { if(e.key === "Escape") closeModal(); });
+
+        ref.on('value', snap => {
+            const val = snap.val();
+            if(val) {
+                data.players = val.players || [];
+                data.rounds = val.rounds || {};
+                data.bracketData = val.bracketData || null;
+                const def = { max: 32, rounds: 3, started: false, mode: 'swiss', title: "Tournoi", passHash: DEFAULT_HASH, hasSemis: false };
+                data.settings = {...def, ...(val.settings||{})};
+                data.currentRound = val.currentRound || 1;
+                
+                document.title = data.settings.title;
+                document.getElementById('app-title').innerText = data.settings.title;
+
+                if(data.settings.started) {
+                    if(lastPlayedRound === 0) switchTab(1);
+                    if(data.settings.mode === 'tree') renderBracketLibrary();
+                } else {
+                    document.getElementById('bracket-root').innerHTML = '';
+                }
+            }
+            if(viewRound === 1 && data.currentRound > 1) viewRound = data.currentRound;
+            calcScores();
+            checkPendingRatings();
+            renderLobby();
+            if(data.settings.mode === 'swiss' && data.settings.started) renderSwiss();
+        });
+        
+        ref.child('chat').limitToLast(50).on('child_added', snap => renderChatMessage(snap.val()));
+        initStars();
+    };
+
+    function save() { ref.update({ players: data.players, rounds: data.rounds, bracketData: data.bracketData, settings: data.settings, currentRound: data.currentRound }); }
+
+    // --- LIBRARY BRACKET ---
+    function initBracketLibrary() {
+        let pool = [...data.players];
+        pool.sort(() => Math.random() - 0.5);
+        let size = 2; while(size < pool.length) size *= 2;
+        let teams = [];
+        for(let i=0; i<size/2; i++) {
+            let p1 = pool[i] ? pool[i].name : null;
+            let p2 = pool[size - 1 - i] ? pool[size - 1 - i].name : null;
+            teams.push([p1, p2]);
+        }
+        data.bracketData = { teams: teams, results: [] };
+        save();
+    }
+
+    function renderBracketLibrary() {
+        if(!data.bracketData) return;
+        $('#bracket-root').empty().bracket({
+            init: data.bracketData,
+            save: function(newData) {
+                if(isAdmin) { data.bracketData = newData; save(); }
+            },
+            disableToolbar: true,
+            disableTeamEdit: true,
+            teamWidth: 140,
+            scoreWidth: 25,
+            matchMargin: 30,
+            roundMargin: 40
+        });
+    }
+
+    // --- MODALS ---
+    function showModal(title, contentHtml, buttons) {
+        document.getElementById('modal-title').innerText = title;
+        document.getElementById('modal-body').innerHTML = contentHtml;
+        const actions = document.getElementById('modal-actions');
+        actions.innerHTML = '';
+        buttons.forEach(b => {
+            const btn = document.createElement('button');
+            btn.className = `btn btn-sm ${b.type==='danger'?'btn-danger':(b.type==='success'?'btn-success':'')}`;
+            btn.innerText = b.text;
+            btn.onclick = b.action;
+            actions.appendChild(btn);
+        });
+        document.getElementById('modal-overlay').style.display = 'flex';
+        const input = document.querySelector('.modal-input');
+        if(input) { setTimeout(() => input.focus(), 100); input.onkeydown = (e) => { if(e.key==='Enter') buttons[buttons.length-1].action(); } }
+    }
+    function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
+
+    // --- ACTIONS ---
+    function openNameModal() { showModal("Pseudo", '<input id="modal-inp-name" class="modal-input" maxlength="12" placeholder="Nom...">', [{text:"Annuler", action:closeModal},{text:"Valider", type:"primary", action: () => { const n = document.getElementById('modal-inp-name').value.trim(); if(!n) return; if(data.players.some(p => p.name.toLowerCase() === n.toLowerCase() && p.id !== myId)) showModal("Oups", "Pris !", [{text:"OK", action:()=>openNameModal()}]); else { let p = data.players.find(x=>x.id===myId); if(p) { p.name = n; save(); closeModal(); } } }}]); }
+    function openEmojiModal() { showModal("Emoji", '<input id="modal-inp-emoji" class="modal-input" placeholder="Emoji..." maxlength="2">', [{text:"Annuler", action:closeModal},{text:"Valider", type:"primary", action: () => { let e = document.getElementById('modal-inp-emoji').value.trim(); if(e) { let p = data.players.find(x=>x.id===myId); if(p) { p.avatar = Array.from(e)[0]; save(); closeModal(); } } }}]); }
+    function openLoginModal() { showModal("Admin", '<input type="password" id="modal-pass" class="modal-input" placeholder="Mot de passe...">', [{text:"Fermer", action:closeModal},{text:"Connexion", type:"primary", action: async () => { const inp = document.getElementById('modal-pass').value; const h = await sha256(inp); if(h === (data.settings.passHash||DEFAULT_HASH)) { isAdmin=true; localStorage.setItem('v35_admin_auth', 'true'); document.body.classList.add('is-admin'); renderLobby(); if(data.settings.mode==='tree') renderBracketLibrary(); closeModal(); } else showModal("Erreur","Mot de passe incorrect",[{text:"OK",action:()=>openLoginModal()}]); }}]); }
+
+    // --- FP MODAL ---
+    function checkPendingRatings() {
+        let pool = [];
+        if(data.settings.mode === 'swiss') pool = Object.values(data.rounds).flat();
+        // Bracket rating is complex with library, skipped for simplicity or add later
+        pool.forEach(m => {
+            if((m.res) && m.p2 !== "BYE") {
+                if(m.p1 === myId && (!m.ratings || !m.ratings.p1)) openFairPlay(m, m.p2);
+                if(m.p2 === myId && (!m.ratings || !m.ratings.p2)) openFairPlay(m, m.p1);
+            }
+        });
+    }
+    function openFairPlay(match, oppId) {
+        if(document.getElementById('modal-overlay').style.display === 'flex') return;
+        let opp = data.players.find(p=>p.id===oppId); if(!opp) return;
+        pendingRatingMatch = match;
+        let starsHtml = ''; for(let i=1; i<=5; i++) starsHtml += `<span id="star-${i}" onclick="rateStar(${i})" class="fp-star">★</span>`;
+        showModal("🤝 Fair Play", `<p>Notez ${opp.name}</p><div class="fp-stars">${starsHtml}</div><input type="hidden" id="fp-val" value="5">`, [{text:"Valider", type:"primary", action: submitFairPlay}]);
+        rateStar(5);
+    }
+    window.rateStar = function(n) { document.getElementById('fp-val').value = n; for(let i=1; i<=5; i++) document.getElementById(`star-${i}`).className = i <= n ? 'fp-star active' : 'fp-star'; }
+    function submitFairPlay() {
+        if(!pendingRatingMatch) return;
+        let note = parseInt(document.getElementById('fp-val').value);
+        let mRef = null;
+        // Search in Swiss
+        Object.values(data.rounds).flat().forEach(m => { if(m.id === pendingRatingMatch.id) mRef = m; });
+        if(mRef) {
+            if(!mRef.ratings) mRef.ratings = {};
+            if(myId === mRef.p1) mRef.ratings.p1 = note; else mRef.ratings.p2 = note;
+            let oppId = (myId === mRef.p1) ? mRef.p2 : mRef.p1;
+            let opp = data.players.find(p=>p.id === oppId);
+            if(opp) { opp.fpTotal = (opp.fpTotal||0)+note; opp.fpCount = (opp.fpCount||0)+1; }
+            save();
+        }
+        closeModal(); pendingRatingMatch = null;
+    }
+
+    // --- LOGIC ---
+    function calcScores() {
+        data.players.forEach(p => { p.points = 0; p.wins = 0; p.buchholz = 0; p.opponents = []; });
+        
+        // Swiss Points
+        if(data.settings.mode === 'swiss') {
+            Object.values(data.rounds).flat().forEach(m => {
+                let p1 = data.players.find(x => x.id === m.p1);
+                let p2 = data.players.find(x => x.id === m.p2);
+                if(p1 && p2) { p1.opponents.push(p2.id); p2.opponents.push(p1.id); }
+                if(m.res) {
+                    if(p1 && m.res==='1-0') { p1.points+=1; p1.wins++; }
+                    if(p1 && m.res==='0.5-0.5') p1.points+=0.5;
+                    if(p2 && m.res==='0-1') { p2.points+=1; p2.wins++; }
+                    if(p2 && m.res==='0.5-0.5') p2.points+=0.5;
+                    if(p1 && m.p2==="BYE") { p1.points+=1; p1.wins++; }
+                }
+            });
+        }
+        // Bracket Points (From Library Data if available)
+        // Hard to parse library data back to flat stats easily without strict mapping.
+        // For V35 we trust Swiss points mostly.
+        
+        data.players.forEach(p => { p.buchholz = p.opponents.reduce((acc, oppId) => acc + (data.players.find(x => x.id === oppId)?.points || 0), 0); });
+    }
+
+    // --- USERS ---
+    function registerMe() {
+        if(data.settings.started) return;
+        if(data.players.length >= data.settings.max) return showModal("Erreur", "Complet", [{text:"OK", action:closeModal}]);
+        const n = document.getElementById('inp-my-name').value.trim();
+        if(!n) return;
+        if(data.players.some(p => p.name.toLowerCase() === n.toLowerCase())) return showModal("Erreur", "Pseudo pris !", [{text:"OK", action:closeModal}]);
+        const eid = Date.now().toString();
+        let em = EMOJIS[Math.floor(Math.random()*EMOJIS.length)];
+        data.players.push({ id: eid, name: n, avatar: em, leaveRequest: false });
+        localStorage.setItem('v35_uid', eid);
+        myId = eid;
+        save();
+    }
+    function askLeave() { let p = data.players.find(x=>x.id===myId); if(p) { p.leaveRequest = true; save(); } }
+    function acceptLeave(id) { data.players = data.players.filter(p => String(p.id) !== String(id)); save(); }
+    function refuseLeave(id) { let p = data.players.find(x=>String(x.id)===String(id)); if(p) { p.leaveRequest = false; save(); } }
+
+    // --- ADMIN ---
+    function checkAdminSession() { if(localStorage.getItem('v35_admin_auth') === 'true') { isAdmin = true; document.body.classList.add('is-admin'); } }
+    function logoutAdmin() { isAdmin = false; localStorage.removeItem('v35_admin_auth'); document.body.classList.remove('is-admin'); renderLobby(); location.reload(); }
+    async function changeAdminPass() {
+        const newP = document.getElementById('new-pass-input').value; if(!newP) return;
+        data.settings.passHash = await sha256(newP); document.getElementById('new-pass-input').value = ""; save(); 
+        showModal("Succès", "Mot de passe changé", [{text:"OK", action:closeModal}]);
+    }
+    function adminAddPlayer() {
+        if(data.settings.started) return;
+        const n = document.getElementById('admin-add-name').value.trim();
+        if(n) { data.players.push({ id:Date.now()+Math.random(), name:n, avatar:"🤖", isSeed:false }); document.getElementById('admin-add-name').value=''; save(); }
+    }
+    function adminKick(id) { 
+        showModal("Confirmer", "Supprimer ce joueur ?", [
+            {text:"Non", action:closeModal},
+            {text:"Oui", type:"danger", action:()=>{ data.players = data.players.filter(p => String(p.id) !== String(id)); save(); closeModal(); }}
+        ]);
+    }
+    function updateSettings() {
+        data.settings.title = document.getElementById('admin-title-inp').value;
+        data.settings.mode = document.getElementById('set-mode').value;
+        data.settings.max = parseInt(document.getElementById('set-max').value);
+        data.settings.rounds = parseInt(document.getElementById('set-rounds').value);
+        data.settings.hasSemis = document.getElementById('set-semis').checked;
+        save();
+    }
+    function resetAll() { showModal("Danger", "Tout effacer ?", [{text:"Non", action:closeModal},{text:"OUI", type:"danger", action:()=>{ref.remove(); location.reload();}}]); }
+    function restartCompetition() {
+        showModal("Nouveau", "Relancer le tournoi (garder joueurs) ?", [{text:"Non", action:closeModal},{text:"OUI", type:"success", action:()=>{
+            data.settings.started = false; data.rounds = {}; data.bracketData = null; data.currentRound = 1; viewRound = 1;
+            data.players.forEach(p => { p.points = 0; p.wins = 0; p.leaveRequest = false; });
+            save(); closeModal();
+        }}]);
+    }
+    function startTournament() {
+        if(data.players.length < 2) return showModal("Erreur", "Il faut 2 joueurs min", [{text:"OK", action:closeModal}]);
+        data.settings.started = true;
+        if(data.settings.mode === 'tree') initBracketLibrary();
+        else { data.currentRound = 1; viewRound = 1; generateSwissPairings(1, true); }
+        save();
+    }
+
+    // --- SWISS ---
+    function generateSwissPairings(r, isRand) {
+        let pool = [...data.players];
+        if(isRand) pool.sort(() => Math.random()-0.5); else pool.sort((a,b) => b.points - a.points || b.buchholz - a.buchholz);
+        let ms = [];
+        while(pool.length) {
+            let p1=pool.shift(), p2=pool.length?pool.shift():"BYE";
+            ms.push({ id:`s_${r}_${Date.now()}_${Math.random()}`, p1:p1.id, p2:p2==="BYE"?"BYE":p2.id, res:null });
+        }
+        if(!data.rounds) data.rounds={}; data.rounds[r]=ms;
+    }
+    function setSwissScore(r, i, res) { if(!isAdmin) return; data.rounds[r][i].res=res; save(); }
+    
+    function forceNextRound() {
+        const roundsCount = data.settings.rounds;
+        
+        // CHECK SEMI
+        if(data.settings.hasSemis && data.currentRound === roundsCount) {
+            data.currentRound++; viewRound = data.currentRound;
+            // Generate Semi-Finals (Top 4)
+            let sorted = [...data.players].sort((a,b)=>b.points-a.points || b.buchholz-a.buchholz);
+            let p1=sorted[0], p2=sorted[1], p3=sorted[2], p4=sorted[3];
+            let semiMatches = [];
+            if(p1 && p4) semiMatches.push({ id:`semi1`, p1: p1.id, p2: p4.id, res: null, type:'semi' });
+            if(p2 && p3) semiMatches.push({ id:`semi2`, p1: p2.id, p2: p3.id, res: null, type:'semi' });
+            
+            if(!data.rounds) data.rounds={}; data.rounds[data.currentRound] = semiMatches;
+            save(); return;
+        }
+
+        // CHECK FINAL (After Semi or After Rounds)
+        let isPreFinal = (data.settings.hasSemis ? data.currentRound === roundsCount + 1 : data.currentRound === roundsCount);
+        
+        if(isPreFinal) {
+            // Find finalists
+            let finalists = [];
+            if(data.settings.hasSemis) {
+                // Winners of Semi
+                let semis = data.rounds[data.currentRound];
+                semis.forEach(m => {
+                    if(m.res === '1-0') finalists.push(data.players.find(x=>x.id===m.p1));
+                    else if(m.res === '0-1') finalists.push(data.players.find(x=>x.id===m.p2));
+                });
+            } else {
+                // Top 2 Regular
+                let sorted = [...data.players].sort((a,b)=>b.points-a.points || b.buchholz-a.buchholz);
+                finalists = [sorted[0], sorted[1]];
+            }
+
+            if(finalists.length < 2) return alert("Pas assez de joueurs qualifiés !");
+            
+            data.currentRound++; viewRound = data.currentRound;
+            let finalMatch = [{ id:`final_${Date.now()}`, p1: finalists[0].id, p2: finalists[1].id, res: null, type:'final' }];
+            if(!data.rounds) data.rounds={}; data.rounds[data.currentRound] = finalMatch;
+            save(); return;
+        }
+
+        if(data.currentRound > roundsCount + (data.settings.hasSemis?2:1)) return; // End
+        
+        data.currentRound++; viewRound=data.currentRound; generateSwissPairings(data.currentRound, false); save();
+    }
+    
+    function navRound(d){ let t = viewRound+d; if(t<1 || t>data.currentRound) return; viewRound=t; renderSwiss(); }
+
+    // --- RENDER ---
+    function renderLobby() {
+        if(myId && !data.players.some(p => p.id === myId)) { localStorage.removeItem('v35_uid'); myId = null; location.reload(); }
+        const me = data.players.find(p=>p.id===myId);
+        
+        if(isAdmin) {
+            const reqs = data.players.filter(p => p.leaveRequest);
+            const box = document.getElementById('admin-leave-requests');
+            if(reqs.length > 0) {
+                box.innerHTML = `<h4 style="margin:0;color:red;margin-bottom:5px">Départs :</h4>` + reqs.map(p => `
+                    <div class="leave-item"><span>${p.name}</span><div class="leave-actions"><button class="btn btn-sm btn-success" onclick="acceptLeave('${p.id}')">OK</button><button class="btn btn-sm btn-danger" onclick="refuseLeave('${p.id}')">Refus</button></div></div>`).join('');
+                box.style.display = 'block';
+            } else box.style.display = 'none';
+            
+            if(document.activeElement.id !== 'admin-title-inp') document.getElementById('admin-title-inp').value = data.settings.title;
+            if(document.activeElement.id !== 'set-mode') document.getElementById('set-mode').value = data.settings.mode;
+            document.getElementById('set-max').value = data.settings.max;
+            document.getElementById('set-rounds').value = data.settings.rounds;
+            document.getElementById('set-semis').checked = data.settings.hasSemis;
+        }
+
+        if(data.settings.started) {
+            document.getElementById('reg-lock').style.display = 'block';
+            document.getElementById('view-register').style.display = 'none';
+            document.getElementById('matches-waiting').style.display = 'none';
+            if(data.settings.mode === 'swiss') {
+                document.getElementById('swiss-view').style.display = 'block';
+                document.getElementById('tree-view').style.display = 'none';
+            } else {
+                document.getElementById('swiss-view').style.display = 'none';
+                document.getElementById('tree-view').style.display = 'block';
+            }
+        } else {
+            document.getElementById('reg-lock').style.display = 'none';
+            document.getElementById('view-register').style.display = me ? 'none' : 'block';
+            document.getElementById('matches-waiting').style.display = 'block';
+            document.getElementById('swiss-view').style.display = 'none';
+            document.getElementById('tree-view').style.display = 'none';
+        }
+        
+        document.getElementById('view-profile').style.display = me ? 'block' : 'none';
+        if(me) { 
+            document.getElementById('my-name').innerText=me.name; document.getElementById('my-emoji').innerText=me.avatar; 
+            if(me.leaveRequest) { document.getElementById('btn-ask-leave').style.display='none'; document.getElementById('txt-leave-pending').style.display='block'; }
+            else { document.getElementById('btn-ask-leave').style.display='inline-block'; document.getElementById('txt-leave-pending').style.display='none'; }
+        }
+        
+        document.getElementById('count-curr').innerText = data.players.length;
+        document.getElementById('count-max').innerText = data.settings.max;
+
+        document.getElementById('chips-list').innerHTML = data.players.map(p => `
+            <div class="chip ${p.id===myId?'me':''}" style="${p.leaveRequest?'border:1px solid red':''}">
+                ${p.leaveRequest ? '<span style="color:red">!</span>' : ''} ${p.avatar} ${p.name}
+                <span class="del-icon" onclick="adminKick('${p.id}')">×</span>
+            </div>`).join('');
+            
+        let sorted = [...data.players].sort((a,b)=>b.points-a.points || b.buchholz-a.buchholz);
+        document.getElementById('rank-body').innerHTML = sorted.map((p,i) => {
+            let fpAvg = p.fpCount ? (p.fpTotal/p.fpCount).toFixed(1) + "★" : '-';
+            return `<tr class="${p.id===myId?'is-me':''}"><td>${i+1}</td><td>${p.avatar} ${p.name}</td><td style="text-align:center;"><b>${p.points}</b></td><td style="text-align:center;">${p.buchholz}</td><td style="text-align:center;">${fpAvg}</td></tr>`;
+        }).join('');
+    }
+
+    function renderSwiss() {
+        let isFinal = false;
+        let isSemi = false;
+        
+        // Determine Round Type
+        if(data.settings.hasSemis) {
+            isSemi = (viewRound === data.settings.rounds + 1);
+            isFinal = (viewRound === data.settings.rounds + 2);
+        } else {
+            isFinal = (viewRound === data.settings.rounds + 1);
+        }
+
+        let title = `Ronde ${viewRound}`;
+        if(isSemi) title = "🏅 DEMI-FINALES";
+        if(isFinal) title = "🏆 FINALE";
+        
+        document.getElementById('round-title').innerText = title;
+        document.getElementById('round-title').style.color = (isFinal || isSemi) ? "var(--gold)" : "var(--primary)";
+        
+        document.getElementById('nav-prev').style.visibility = (viewRound <= 1) ? 'hidden' : 'visible';
+        document.getElementById('nav-next').style.visibility = (viewRound >= data.currentRound) ? 'hidden' : 'visible';
+
+        let btnNext = document.getElementById('btn-swiss-next');
+        if(isFinal) {
+            btnNext.style.display = 'none';
+        } else {
+            btnNext.style.display = 'block';
+            if(isSemi) btnNext.innerText = "🏆 Lancer la FINALE";
+            else if(data.currentRound >= data.settings.rounds && !data.settings.hasSemis) btnNext.innerText = "🏆 Lancer la FINALE";
+            else if(data.currentRound >= data.settings.rounds && data.settings.hasSemis) btnNext.innerText = "🏅 Lancer Demi-Finales";
+            else btnNext.innerText = `Lancer Ronde ${data.currentRound + 1} ▶`;
+        }
+
+        let ms = data.rounds[viewRound] || [];
+        document.getElementById('swiss-list').innerHTML = ms.map((m,i) => {
+            let p1=data.players.find(x=>x.id===m.p1), p2=data.players.find(x=>x.id===m.p2);
+            if(!p1) return '';
+            let btns = isAdmin ? `<div class="admin-actions"><button class="score-btn ${m.res==='1-0'?'active':''}" onclick="setSwissScore(${viewRound},${i},'1-0')">1-0</button><button class="score-btn ${m.res==='0.5-0.5'?'active':''}" onclick="setSwissScore(${viewRound},${i},'0.5-0.5')">Match Nul</button><button class="score-btn ${m.res==='0-1'?'active':''}" onclick="setSwissScore(${viewRound},${i},'0-1')">0-1</button></div>` : '';
+            return `<div class="match-card">
+                <div class="swiss-duel">
+                    <div class="s-player ${p1.id===myId?'is-me':''}"><span class="s-dot white"></span> ${p1.avatar} ${p1.name}</div>
+                    <div class="s-score">${m.res==='1-0'?'1 - 0':(m.res==='0.5-0.5'?'Match Nul':(m.res==='0-1'?'0 - 1':'vs'))}</div>
+                    <div class="s-player right ${p2&&p2.id===myId?'is-me':''}">${p2?p2.name:'BYE'} ${p2?p2.avatar:'👻'} <span class="s-dot black"></span></div>
+                </div>
+            ${btns}</div>`;
+        }).join('');
+    }
+
+    // --- CHAT ---
+    function toggleChatMobile() { document.getElementById('chat-panel').classList.toggle('open'); }
+    function handleChat(e) { if(e.key === 'Enter') sendChat(); }
+    function sendChat() {
+        const inp = document.getElementById('chat-input');
+        const msg = inp.value.trim();
+        if(!msg) return;
+        let name = "Spectateur";
+        let p = data.players.find(x=>x.id===myId);
+        if(p) name = p.name;
+        if(isAdmin) name = "👑 Admin";
+        ref.child('chat').push({ name: name, text: msg, time: Date.now() });
+        inp.value = '';
+    }
+    function renderChatMessage(m) {
+        const box = document.getElementById('chat-box');
+        const d = new Date(m.time);
+        const timeStr = `${d.getHours()}:${d.getMinutes()<10?'0':''}${d.getMinutes()}`;
+        box.innerHTML += `<div class="msg"><div class="msg-header"><span class="msg-author">${m.name}</span> <span class="msg-time">${timeStr}</span></div><div class="msg-text">${m.text}</div></div>`;
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function switchTab(t) {
+        document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+        document.querySelectorAll('.tab').forEach(s=>s.classList.remove('active'));
+        document.getElementById('tab-'+t).classList.add('active');
+        document.querySelectorAll('.tab')[t].classList.add('active');
+        document.getElementById('tab-slider').style.transform = `translateX(${t * 100}%)`;
+    }
+    function toggleTV(){ document.body.classList.toggle('tv-mode'); if(document.body.classList.contains('tv-mode')) switchTab(1); }
+    function toggleTheme(){ document.body.classList.toggle('dark-mode'); localStorage.setItem('v35_dark', document.body.classList.contains('dark-mode')); }
+
+</script>
+</body>
+</html>
