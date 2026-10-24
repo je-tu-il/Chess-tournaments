@@ -187,8 +187,9 @@
         <h1 id="app-title">🏆 Tournoi V35</h1>
         <div class="header-actions">
             <button onclick="toggleTV()">📺</button>
-            <button onclick="toggleTheme()">🌗</button>
-            <button onclick="openLoginModal()">🔒</button>
+            <button onclick="toggleTheme()" title="Mode Sombre/Clair">🌗</button>
+            <button onclick="openConfigModal()" title="Configuration Firebase">⚙️</button>
+            <button onclick="openLoginModal()" title="Connexion Admin">🔒</button>
         </div>
     </header>
 
@@ -321,9 +322,60 @@
     let lastPlayedRound = 0;
     let pendingRatingMatch = null;
 
+    function openConfigModal() {
+        let curr = "";
+        try {
+            curr = localStorage.getItem('tournoi_firebase_config') || JSON.stringify(firebaseConfig, null, 2);
+        } catch(e) { curr = ""; }
+        showModal("Configuration Firebase", `
+            <p style="font-size:0.85rem; color:var(--muted); margin-bottom:10px;">
+                Collez votre configuration Firebase Realtime Database ci-dessous :
+            </p>
+            <textarea id="firebase-cfg-input" style="width:100%; height:150px; font-family:monospace; font-size:0.8rem; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:8px;">${curr}</textarea>
+        `, [
+            {
+                text: "Enregistrer & Recharger",
+                action: () => {
+                    const val = document.getElementById('firebase-cfg-input').value;
+                    try {
+                        let parsed;
+                        if (val.trim().startsWith('{')) {
+                            parsed = JSON.parse(val);
+                        } else {
+                            parsed = Function('"use strict";return (' + val + ')')();
+                        }
+                        if (!parsed.apiKey || !parsed.databaseURL) throw new Error("Champs apiKey ou databaseURL manquants");
+                        localStorage.setItem('tournoi_firebase_config', JSON.stringify(parsed));
+                        location.reload();
+                    } catch(e) {
+                        alert("Configuration invalide : " + e.message);
+                    }
+                }
+            },
+            { text: "Annuler", action: closeModal }
+        ]);
+    }
+
+    let activeConfig = firebaseConfig;
+    try {
+        const stored = localStorage.getItem('tournoi_firebase_config');
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed.apiKey && parsed.apiKey !== "REMPLACE_MOI") activeConfig = parsed;
+        }
+    } catch(e) {}
+
     window.onload = function() {
-        if(firebaseConfig.apiKey === "REMPLACE_MOI") return showModal("Erreur", "Clés manquantes !", [{text:"OK", action:closeModal}]);
-        firebase.initializeApp(firebaseConfig);
+        if (activeConfig.apiKey === "REMPLACE_MOI") {
+            return showModal(
+                "Bienvenue sur Tournoi Manager",
+                "<p style='margin-bottom:10px;'>Pour synchroniser les matchs et le chat en temps réel, connectez votre base Firebase.</p>",
+                [
+                    { text: "⚙️ Configurer Firebase", action: () => { closeModal(); openConfigModal(); } }
+                ]
+            );
+        }
+        firebase.initializeApp(activeConfig);
         db = firebase.database();
         ref = db.ref('tournoi_v35');
         

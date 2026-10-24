@@ -1,57 +1,51 @@
-# Chess-tournaments
-A fully serverless web application (HTML/JS/Firebase) designed to organize competitions in real-time. It handles player registration, live chat, and two major game modes: the Swiss System (with Buchholz tie-breaks) and Single Elimination Brackets. Perfect for LAN parties, board game tournaments, or casual e-sports events.
+# 🏆 Chess-tournaments — Gestionnaire de Tournois en Temps Réel
 
-# 🏆 Tournament Manager (V35 Ultimate)
+[![Live Demo](https://img.shields.io/badge/Demo%20en%20Ligne-Organiser%20sur%20GitHub%20Pages-success?style=for-the-badge&logo=github)](https://je-tu-il.github.io/Chess-tournaments/)
+[![Firebase](https://img.shields.io/badge/Backend-Firebase%20Realtime-FFCA28.svg?logo=firebase)](https://firebase.google.com/)
+[![Zero Node.js](https://img.shields.io/badge/Dependencies-0%20(Pure%20HTML%2FJS)-brightgreen.svg)](#)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A complete, responsive, and real-time web application to manage tournaments easily. No server installation required (Node/PHP); it runs entirely in the browser using Firebase as the backend.
+> Une application web complète, sans aucun serveur à installer (100% serverless), pour organiser des compétitions d'échecs, tournois de jeux de société, LAN parties ou événements e-sport en temps réel.  
+> Gère l'inscription des joueurs, les rondes du système Suisse (avec départage Buchholz), les tableaux à élimination directe, le chat en direct et un mode projection TV.
 
-## ⚠️ Known Issue
+---
 
-> **The score display in the Bracket (Tree) view is currently broken.**
-> While the logic works perfectly (clicking a player advances them as the winner and updates the database), the visual interface (powered by the `jquery-bracket` library) struggles to display specific score numbers (e.g., "2-1") or align connectors perfectly in complex setups.
-> *Note: The "Swiss Rounds" mode works perfectly.*
+## ⚡ Utilisation Immédiate (Sans Installation)
 
-## ✨ Key Features
+👉 **[Accéder directement à l'application : https://je-tu-il.github.io/Chess-tournaments/](https://je-tu-il.github.io/Chess-tournaments/)**
 
-### 🎮 Game Modes
-* **Swiss System:** Dynamic pairing, point-based ranking, **Buchholz** tie-break system.
-* **Bracket (Tree):** Automatic generation (powers of 2), smart **BYE** handling for odd numbers of players.
-* **Final Phases:** Option to trigger Semi-Finals and a Grand Final after the Swiss rounds.
+1. Ouvrez l'application dans votre navigateur.
+2. Cliquez sur l'icône **⚙️ (Configuration)** en haut à droite pour connecter votre base de données Firebase gratuite (Realtime Database).
+3. Vos clés sont sauvegardées localement dans votre navigateur (`localStorage`) : **aucun besoin de modifier le code source**.
 
-### 🛠️ Administration
-* **Secure Panel:** Protected by a password (hashed with SHA-256).
-* **Total Control:** Manually add players, kick players, manage scores, full tournament reset.
-* **Drop/Leave Management:** Players can request to leave the tournament; the admin must approve the request.
+---
 
-### 💬 Social & UX
-* **Global Chat:** Real-time messaging (Sidebar on Desktop, Overlay on Mobile).
-* **Fair-Play:** 5-star rating system popup after every match.
-* **Interface:** Dark/Light Mode, Fully Responsive (Mobile/Tablet/PC), TV Mode (Projector view).
-* **Feedback:** Sound effects (toggleable), Confetti on victory.
+## ✨ Fonctionnalités Majeures
 
-## 🚀 Installation & Configuration
+- ♟️ **Deux Modes de Tournoi au Choix** :
+  - **Système Suisse** : Appariement dynamique, classement par points et calcul automatique du départage de **Buchholz**.
+  - **Tableau à Élimination Directe (Bracket)** : Arbre de tournoi automatique (puissances de 2) avec gestion intelligente des exemptions (BYE).
+- ⚙️ **Panneau Administrateur Sécurisé** :
+  - Accès protégé par mot de passe (hachage SHA-256).
+  - Ajout manuel, exclusion de joueur, validation des résultats, réinitialisation de tournoi.
+- 💬 **Chat Intégré en Temps Réel** : Messagerie instantanée pour les participants (barre latérale sur bureau, tiroir sur mobile).
+- 📺 **Mode TV & Projecteur** : Masque les menus d'administration pour afficher les rondes et classements en plein écran sur vidéo-projecteur.
+- 🌓 **Thèmes Sombre & Clair** : Basculable d'un clic avec le bouton 🌗.
 
-This project does not require Node.js or a local server.
+---
 
-1.  **Clone or Download** the repository files.
-2.  **Create a Firebase Project:**
-    * Go to the [Firebase Console](https://console.firebase.google.com/).
-    * Create a new project and add a "Web App".
-    * Enable the **Realtime Database** (start in Test Mode for development).
-3.  **Configure API Keys:**
-    * Open the `index.html` file in a code editor.
-    * Scroll down to the bottom script section to find `const firebaseConfig = { ... }`.
-    * Replace the values `"REMPLACE_MOI"` (or placeholders) with your actual keys provided by Firebase.
-4.  **Run:** Simply open `index.html` in your web browser.
+## 🛠️ Lancement Local
 
-### Configuration Example:
-```javascript
-const firebaseConfig = {
-    apiKey: "AIzaSyD...",
-    authDomain: "your-project.firebaseapp.com",
-    databaseURL: "[https://your-project-default-rtdb.firebaseio.com](https://your-project-default-rtdb.firebaseio.com)",
-    projectId: "your-project",
-    storageBucket: "your-project.appspot.com",
-    messagingSenderId: "123456...",
-    appId: "1:123456..."
-};
+Aucun runtime Node.js n'est nécessaire. Clonez et ouvrez simplement `index.html` :
+
+```bash
+git clone https://github.com/je-tu-il/Chess-tournaments.git
+cd Chess-tournaments
+```
+Ouvrez directement `index.html` dans votre navigateur préféré.
+
+---
+
+## 📄 Licence
+
+Ce projet est sous licence MIT. Libre d'utilisation pour vos événements et clubs.
